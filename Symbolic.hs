@@ -37,7 +37,13 @@ data Expr a = Expr Op [a]
             | Unary Un a
             | Var String
             | Const Integer
-            deriving (Show, Eq)
+            deriving Eq
+
+instance Show a => Show (Expr a) where
+    show (Expr op xs) = show op ++ " " ++ show xs
+    show (Unary un xs) = show un ++ " " ++ show xs
+    show (Var x) = show x
+    show (Const x) = show x
 
 sigma :: [a (Fix a)] -> Expr (Fix a)
 sigma = Expr Sigma . fmap Fx
