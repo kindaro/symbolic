@@ -89,7 +89,7 @@ instance IsString ExprF where
 -- \ :t fmap unFix $ [Fx ("x" :: ExprF)]
 -- fmap unFix $ [Fx ("x" :: ExprF)] :: [Expr (Fix Expr)]
 
--- | Old-school Expr definition.
+-- | An old-school Expr definition.
 euler27 = Expr Sigma
         [ Fx $ Expr Pow [Fx $ Var "x", Fx $ Const 2]
         , Fx $ Expr Pi [Fx $ Var "a", Fx $ Var "x"]
