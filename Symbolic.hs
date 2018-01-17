@@ -60,14 +60,9 @@ instance Functor Expr where
     fmap _ (Var x) = Var x
     fmap _ (Const x) = Const x
 
+instance Algebra Expr ExprF where
+
 instance Algebra Expr Integer where
-    alg (Expr Sigma xs) = foldl1' (+) xs
-    alg (Expr Pi xs) = foldl1' (*) xs
-    alg (Expr Pow xs) = foldr1 (^) xs
-    alg (Unary Inv x) = -x
-    alg (Unary Abs x) = abs x
-    alg (Const x) = x
-    alg (Var v) = error $ "TODO: define variable lookup."
 
 type ExprF = Expr (Fix Expr)
 
@@ -98,12 +93,27 @@ euler27 = Expr Sigma
 -- | A definition of Expr using Num & IsString instances.
 euler27' = sigma [pow ["x", 2], "a" * "x", "b"]
 
+-- | Compute the value of the given expression.
+eval (Expr Sigma xs) = foldl1' (+) xs
+eval (Expr Pi xs) = foldl1' (*) xs
+eval (Expr Pow xs) = foldr1 (^) xs
+eval (Unary Inv x) = -x
+eval (Unary Abs x) = abs x
+eval (Const x) = x
+eval (Var v) = error $ "TODO: define variable lookup."
+
+-- \ cata eval $ pow [sigma [1,2,3],4]
+-- 1296
+
 -- | Simplify an expression as best we can.
 -- simpl :: Expr -> Expr
 
 -- | Substitute expression x with expression y, throughout expression f.
--- subst :: Expr -> Expr -> Expr -> Expr
--- subst f x y = 
+subst :: ExprF -> ExprF -> ExprF -> ExprF
+subst e x y = fmap mutate e
+  where
+    mutate (Fx e) | e == x = Fx y
+                  | otherwise = Fx e
 
 -- | Solve f for x.
 -- solve f x =
