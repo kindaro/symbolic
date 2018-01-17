@@ -20,7 +20,7 @@ import Algebra
 -- [+] Make it Algebra.
 -- [ ] Make it Traversable.
 -- [ ] Make simpl.
--- [ ] Make subst.
+-- [+] Make subst.
 -- [ ] Make solve.
 -- [ ] Make sign computable.
 --
@@ -66,9 +66,14 @@ instance Functor Expr where
     fmap _ (Var x) = Var x
     fmap _ (Const x) = Const x
 
-instance Algebra Expr ExprF where
-
-instance Algebra Expr Integer where
+eval :: Algebra Expr Integer
+eval (Expr Sigma xs) = foldl1' (+) xs
+eval (Expr Pi xs) = foldl1' (*) xs
+eval (Expr Pow xs) = foldr1 (^) xs
+eval (Unary Inv x) = -x
+eval (Unary Abs x) = abs x
+eval (Const x) = x
+eval (Var v) = error $ "TODO: define variable lookup."
 
 type ExprF = Expr (Fix Expr)
 
@@ -99,14 +104,10 @@ euler27 = Expr Sigma
 -- | A definition of Expr using Num & IsString instances.
 euler27' = sigma [pow ["x", 2], "a" * "x", "b"]
 
--- | Compute the value of the given expression.
-eval (Expr Sigma xs) = foldl1' (+) xs
-eval (Expr Pi xs) = foldl1' (*) xs
-eval (Expr Pow xs) = foldr1 (^) xs
-eval (Unary Inv x) = -x
-eval (Unary Abs x) = abs x
-eval (Const x) = x
-eval (Var v) = error $ "TODO: define variable lookup."
+-- \ euler27 == euler27'
+-- True
+-- \ euler27 == Const 1
+-- False
 
 -- \ cata eval $ pow [sigma [1,2,3],4]
 -- 1296
@@ -116,10 +117,22 @@ eval (Var v) = error $ "TODO: define variable lookup."
 
 -- | Substitute expression x with expression y, throughout expression f.
 subst :: ExprF -> ExprF -> ExprF -> ExprF
-subst e x y = fmap mutate e
+subst x y = unFix . cata mutate
   where
-    mutate (Fx e) | e == x = Fx y
-                  | otherwise = Fx e
+    mutate :: Algebra Expr (Fix Expr)
+    mutate e | e == x = Fx y
+             | otherwise = Fx e
+
+subsTable :: [(ExprF, ExprF)] -> ExprF -> ExprF
+subsTable table e = foldl' (flip . uncurry $ subst) e table
+
+-- \ let euler1 = subsTable [("b", 41), ("a", 1)] euler27
+-- \ let f i = cata eval . subst "x" (Const i) $ euler1
+-- \ takeWhile isPrime $ f <$> [1..]
+-- [43,47,53,61,71,83,97,113,131,151,173,197,223,251,281,313,347,383,421,461,
+-- 503,547,593,641,691,743,797,853,911,971,1033,1097,1163,1231,1301,1373,1447,
+-- 1523,1601]
 
 -- | Solve f for x.
 -- solve f x =
+
