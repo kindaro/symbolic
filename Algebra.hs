@@ -16,8 +16,10 @@ instance Show (a (Fix a)) => Show (Fix a) where
 instance Eq (a (Fix a)) => Eq (Fix a) where
     (Fx x) == (Fx y) = x == y
 
-class Functor a => Algebra a b where
-    cata :: (a b -> b) -> a (Fix a) -> b
-    cata f = cata' . Fx
-      where
-        cata' = f . fmap cata' . unFix
+type Algebra a b = a b -> b
+
+cata :: Functor a => Algebra a b -> a (Fix a) -> b
+cata f = (cata' f) . Fx
+
+cata' :: Functor a => Algebra a b -> Fix a -> b
+cata' f x = f . fmap (cata' f) . unFix $ x
