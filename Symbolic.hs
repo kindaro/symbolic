@@ -8,6 +8,7 @@
 
 module Symbolic where
 
+import Control.Monad ((<=<))
 import Data.List
 import Data.String
 
@@ -29,15 +30,17 @@ import Algebra
 -- or accounted for. Example: I can't have negative exponents, so there
 -- should be a restriction put in place.
 
-data Op = Sigma | Pi | Pow | Equal deriving (Show, Eq)
+data Op = Sigma | Pi | Pow deriving (Show, Eq)
 
 data Un = Inv | Abs deriving (Show, Eq)
 
-data Expr a = Expr Op [a]
+data PolymorphicExpr a = Expr Op [a]
             | Unary Un a
             | Var String
             | Const Integer
             deriving Eq
+
+type Expr = PolymorphicExpr Integer
 
 instance Show a => Show (Expr a) where
     show (Expr op xs) = show op ++ " " ++ show xs
@@ -59,6 +62,21 @@ inv = Unary Inv . Fx
 
 absolute :: a (Fix a) -> Expr (Fix a) 
 absolute = Unary Abs . Fx
+
+isAssociative, isIdempotent, isDual :: Expr a -> Bool
+
+-- | Can I remove parentheses from consecutive occurences of these expressions?
+isAssociative (Expr op _) | op `elem` [Sigma, Pi] = True  -- TODO: Is this all? What about Exp?
+                          | otherwise = False
+isAssociative _ = False
+
+-- | Would two successive operations have the same effect as one?
+isIdempotent (Unary Abs _) = True
+isIdempotent _ = False
+
+-- | Would two successive operations cancel each other out?
+isDual (Unary Inv _) = True
+isDual _ = False
 
 instance Functor Expr where
     fmap f (Expr op xs) = Expr op (fmap f xs)
@@ -112,16 +130,17 @@ euler27' = sigma [pow ["x", 2], "a" * "x", "b"]
 -- \ cata eval $ pow [sigma [1,2,3],4]
 -- 1296
 
--- | Simplify an expression as best we can.
--- simpl :: Expr -> Expr
+-- | Accept something that looks like an initial algebra, but actually
+--   discriminates and mutates some of the nodes. Run that algebra through
+--   a given object.
+--
+--   algMap Fx x == x
+algMap :: Algebra Expr (Fix Expr) -> ExprF -> ExprF
+algMap alg = unFix . cata alg
 
 -- | Substitute expression x with expression y, throughout expression f.
 subst :: ExprF -> ExprF -> ExprF -> ExprF
-subst x y = unFix . cata mutate
-  where
-    mutate :: Algebra Expr (Fix Expr)
-    mutate e | e == x = Fx y
-             | otherwise = Fx e
+subst x y = algMap (transform (replace x y))
 
 subsTable :: [(ExprF, ExprF)] -> ExprF -> ExprF
 subsTable table e = foldl' (flip . uncurry $ subst) e table
@@ -136,3 +155,52 @@ subsTable table e = foldl' (flip . uncurry $ subst) e table
 -- | Solve f for x.
 -- solve f x =
 
+-- | Simplify an expression as best we can.
+-- simpl :: Expr -> Expr
+
+-- | Transform may modify an expression and maybe also say something.
+type Transform = ExprF -> ExprF
+
+transform :: Transform -> Algebra Expr (Fix Expr)
+transform t = Fx . t
+
+replace :: ExprF -> ExprF -> Transform
+replace x y e | e == x = Just y
+              | otherwise = Nothing
+
+-- | Fusion glues together associative operations (i.e. removing parentheses),
+--   removes superfluous repetitive adjoined unary operations, and evaluates
+--   constant expressions.
+fusion :: Transform
+fusion = fixp (fuseConstants <=< fuseAssociative <=< fuseUnary) . return
+  where
+    fuseAssociative e@(Expr op xs) | isAssociative e && or (fmap (isAssociative . unFix) xs) = undefined
+                      | otherwise = Nothing
+
+    fuseUnary = undefined
+
+    fuseConstants = undefined
+
+expand :: Transform
+expand = undefined
+
+contract :: Transform
+contract = undefined
+
+group :: Transform
+group = undefined
+
+-- Example: > x^2 + ax + b          x^2 + ax + b
+--          > subst x (y - 1)       (y - 1)^2 + a(y - 1) + b
+--          > expand                y^2 - 2y + 1 + ay - a + b
+--          > group y               y^2 + (a - 2)y + (b - a + 1)
+--
+--          > x^2 + ax + b
+--          > subst x (y - a/2)     (y - a/2)^2 + a(y - a/2) + b
+--          > expand                y^2 - ay + a^2/4 + ay - a^2/2 + b
+--          > group y               y^2 - a^2/4 + b
+--
+--  Eventually I'd like to be able to figure out the substitution necessary to remove one of the
+--  terms in the polynomial automagically. It's feasible to accomplish through writing the
+--  expansion of each term one after another and making sure the terms of a chosen power sum to
+--  zero. I'm not sure how this should be done programmatically.
