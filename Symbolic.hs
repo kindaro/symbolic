@@ -204,3 +204,11 @@ group = undefined
 --  terms in the polynomial automagically. It's feasible to accomplish through writing the
 --  expansion of each term one after another and making sure the terms of a chosen power sum to
 --  zero. I'm not sure how this should be done programmatically.
+
+-- TODO:
+--
+-- How do I write a Traversable? What do I gain if I already have Algebra?
+--
+-- Decide the type of Transform, and how I deal with it. Specifically, I would like to have it
+-- leave a note aside when something was transformed, and return something else than an Expr if
+-- nothing was.
