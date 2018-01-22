@@ -8,9 +8,11 @@
 
 module Symbolic where
 
-import Control.Monad ((<=<))
+import Control.Monad.Trans.Maybe
+import Control.Monad.Writer.Strict
 import Data.List
 import Data.String
+import Data.Text (Text)
 
 import Algebra
 
@@ -34,7 +36,7 @@ data Op = Sigma | Pi | Pow deriving (Show, Eq)
 
 data Un = Inv | Abs deriving (Show, Eq)
 
-data PolymorphicExpr a = Expr Op [a]
+data PolymorphicExpr c a = Expr Op [a]
             | Unary Un a
             | Var String
             | Const Integer
@@ -64,15 +66,19 @@ absolute :: a (Fix a) -> Expr (Fix a)
 absolute = Unary Abs . Fx
 
 -- | Associative binary operations.
+associative :: [Op]
 associative = [Sigma, Pi]
 
 -- | Commutative binary operations.
+commutative :: [Op]
 commutative = [Sigma, Pi]
 
 -- | Idempotent unary operations.
+idempotent :: [Un]
 idempotent = [Abs]
 
 -- | Dual unary operations, given as pairs.
+dual :: [(Un, Un)]
 dual = [(Inv, Inv)]
 
 instance Functor Expr where
@@ -88,7 +94,7 @@ eval (Expr Pow xs) = foldr1 (^) xs
 eval (Unary Inv x) = -x
 eval (Unary Abs x) = abs x
 eval (Const x) = x
-eval (Var v) = error $ "TODO: define variable lookup."
+eval (Var _) = error $ "TODO: define variable lookup."
 
 type ExprF = Expr (Fix Expr)
 
@@ -110,6 +116,7 @@ instance IsString ExprF where
 -- fmap unFix $ [Fx ("x" :: ExprF)] :: [Expr (Fix Expr)]
 
 -- | An old-school Expr definition.
+euler27 :: ExprF
 euler27 = Expr Sigma
         [ Fx $ Expr Pow [Fx $ Var "x", Fx $ Const 2]
         , Fx $ Expr Pi [Fx $ Var "a", Fx $ Var "x"]
@@ -117,6 +124,7 @@ euler27 = Expr Sigma
         ]
 
 -- | A definition of Expr using Num & IsString instances.
+euler27' :: ExprF
 euler27' = sigma [pow ["x", 2], "a" * "x", "b"]
 
 -- \ euler27 == euler27'
@@ -155,21 +163,28 @@ subsTable table e = foldl' (flip . uncurry $ subst) e table
 -- | Simplify an expression as best we can.
 -- simpl :: Expr -> Expr
 
--- | A transformation may modify an expression.
-type Transformation = ExprF -> ExprF
+type Comment = ((ExprF, ExprF), Text)
+
+-- | A transformation may modify an expression and say something.
+type Transformation = ExprF -> MaybeT (Writer [Comment]) ExprF
+
+tellWithDiff :: ExprF -> ExprF -> Text -> Writer [Comment] ExprF
+tellWithDiff e e' x = tell [((e, e'), x)] >> return e'
+
+-- | Drop side effects of a transformation.
+dropEffects :: Transformation -> ExprF -> ExprF
+dropEffects t e = case runWriter . runMaybeT $ t e of
+    (Nothing, _) -> e
+    (Just e', _) -> e'
 
 -- | Recursively apply a transform to an expression.
 transform :: Transformation -> Algebra Expr (Fix Expr)
-transform t = Fx . t
-
--- | See if a transformation makes any changes.
-doesTransformationChangeAnything :: Transformation -> ExprF -> Bool
-doesTransformationChangeAnything t e = t e /= e
+transform t = Fx . dropEffects t
 
 -- | If the expression is extensionally equal to x, replace it with y.
 replace :: ExprF -> ExprF -> Transformation
-replace x y e | e == x = Just y
-              | otherwise = Nothing
+replace x y e | e == x = MaybeT (tellWithDiff x y "replace" >> (return . Just) y)
+              | otherwise = MaybeT (return Nothing)
 
 -- | Fusion glues together associative operations (i.e. removing parentheses),
 --   removes superfluous repetitive adjoined unary operations, and evaluates
@@ -178,9 +193,10 @@ fusion :: Transformation
 fusion = undefined
 
 fuseAssociative :: Transformation
-fuseAssociative e@(Expr op xs)
-    | op `elem` associative = filter (undefined) undefined
-    | otherwise = Nothing
+fuseAssociative = undefined
+-- fuseAssociative e@(Expr op xs)
+--     | op `elem` associative = filter (undefined) undefined
+--     | otherwise = Nothing
 
 fuseUnary = undefined
 
