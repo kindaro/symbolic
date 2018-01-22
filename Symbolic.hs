@@ -26,7 +26,7 @@ import Algebra
 -- [ ] Make sign computable.
 --
 -- How do I make sign computable? For every expression, I may know the way it
--- affects its superexpression. Unknown expressions will be either restricted
+-- affects its superexpression. Unknown expressions will be either isolated
 -- or accounted for. Example: I can't have negative exponents, so there
 -- should be a restriction put in place.
 
@@ -63,20 +63,17 @@ inv = Unary Inv . Fx
 absolute :: a (Fix a) -> Expr (Fix a) 
 absolute = Unary Abs . Fx
 
-isAssociative, isIdempotent, isDual :: Expr a -> Bool
+-- | Associative binary operations.
+associative = [Sigma, Pi]
 
--- | Can I remove parentheses from consecutive occurences of these expressions?
-isAssociative (Expr op _) | op `elem` [Sigma, Pi] = True  -- TODO: Is this all? What about Exp?
-                          | otherwise = False
-isAssociative _ = False
+-- | Commutative binary operations.
+commutative = [Sigma, Pi]
 
--- | Would two successive operations have the same effect as one?
-isIdempotent (Unary Abs _) = True
-isIdempotent _ = False
+-- | Idempotent unary operations.
+idempotent = [Abs]
 
--- | Would two successive operations cancel each other out?
-isDual (Unary Inv _) = True
-isDual _ = False
+-- | Dual unary operations, given as pairs.
+dual = [(Inv, Inv)]
 
 instance Functor Expr where
     fmap f (Expr op xs) = Expr op (fmap f xs)
@@ -158,12 +155,18 @@ subsTable table e = foldl' (flip . uncurry $ subst) e table
 -- | Simplify an expression as best we can.
 -- simpl :: Expr -> Expr
 
--- | Transform may modify an expression and maybe also say something.
-type Transform = ExprF -> ExprF
+-- | A transformation may modify an expression.
+type Transformation = ExprF -> ExprF
 
-transform :: Transform -> Algebra Expr (Fix Expr)
+-- | Recursively apply a transform to an expression.
+transform :: Transformation -> Algebra Expr (Fix Expr)
 transform t = Fx . t
 
+-- | See if a transformation makes any changes.
+doesTransformationChangeAnything :: Transformation -> ExprF -> Bool
+doesTransformationChangeAnything t e = t e /= e
+
+-- | If the expression is extensionally equal to x, replace it with y.
 replace :: ExprF -> ExprF -> Transform
 replace x y e | e == x = Just y
               | otherwise = Nothing
@@ -171,23 +174,25 @@ replace x y e | e == x = Just y
 -- | Fusion glues together associative operations (i.e. removing parentheses),
 --   removes superfluous repetitive adjoined unary operations, and evaluates
 --   constant expressions.
-fusion :: Transform
-fusion = fixp (fuseConstants <=< fuseAssociative <=< fuseUnary) . return
-  where
-    fuseAssociative e@(Expr op xs) | isAssociative e && or (fmap (isAssociative . unFix) xs) = undefined
-                      | otherwise = Nothing
+fusion :: Transformation
+fusion = undefined
 
-    fuseUnary = undefined
+fuseAssociative :: Transformation
+fuseAssociative e@(Expr op xs)
+    | op `elem` associative = filter (
+    | otherwise = Nothing
 
-    fuseConstants = undefined
+fuseUnary = undefined
 
-expand :: Transform
+fuseConstants = undefined
+
+expand :: Transformation
 expand = undefined
 
-contract :: Transform
+contract :: Transformation
 contract = undefined
 
-group :: Transform
+group :: Transformation
 group = undefined
 
 -- Example: > x^2 + ax + b          x^2 + ax + b
