@@ -167,7 +167,7 @@ doesTransformationChangeAnything :: Transformation -> ExprF -> Bool
 doesTransformationChangeAnything t e = t e /= e
 
 -- | If the expression is extensionally equal to x, replace it with y.
-replace :: ExprF -> ExprF -> Transform
+replace :: ExprF -> ExprF -> Transformation
 replace x y e | e == x = Just y
               | otherwise = Nothing
 
@@ -179,7 +179,7 @@ fusion = undefined
 
 fuseAssociative :: Transformation
 fuseAssociative e@(Expr op xs)
-    | op `elem` associative = filter (
+    | op `elem` associative = filter (undefined) undefined
     | otherwise = Nothing
 
 fuseUnary = undefined
