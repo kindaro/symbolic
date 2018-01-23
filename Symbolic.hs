@@ -1,16 +1,17 @@
 {-# LANGUAGE
     OverloadedStrings
+  , NoImplicitPrelude
   , TypeSynonymInstances
   , FlexibleInstances
   #-}
 
 module Symbolic where
 
-import Control.Monad.Trans.Maybe
 import Control.Monad.Writer.Strict
-import Data.List
-import Data.String
-import Data.Text (Text)
+import Data.List (foldl', foldl1')
+import Data.String (IsString(..))
+import Data.Text (Text, unwords, pack)
+import Prelude hiding (unwords)
 
 import Algebra
 
@@ -44,6 +45,14 @@ data PolymorphicExpr c a = Expr Op [a]
             deriving Eq
 
 type Expr = PolymorphicExpr Integer
+
+operator :: Expr a -> Maybe Op
+operator (Expr op _) = Just op
+operator  _          = Nothing
+
+subexprs :: Expr a -> Maybe [a]
+subexprs (Expr _ xs) = Just xs
+subexprs  _          = Nothing
 
 instance Show a => Show (Expr a) where
     show (Expr op xs) = show op ++ " " ++ show xs
@@ -169,7 +178,7 @@ subsTable table e = foldl' (flip . uncurry $ subst) e table
 -- | Simplify an expression as best we can.
 -- simpl :: Expr -> Expr
 
-data Comment = Comment !ExprF !ExprF !Text
+data Comment = Comment !ExprF !ExprF !Text deriving (Show, Eq)
 
 -- | A transformation may modify an expression and say something.
 type Transformation = ExprF -> Maybe (Writer [Comment] ExprF)
@@ -185,6 +194,11 @@ dropMaybe :: Transformation -> ExprF -> Writer [Comment] ExprF
 dropMaybe t e = case t e of
     Nothing -> return e
     Just w  -> w
+
+isApplicable :: Transformation -> ExprF -> Bool
+isApplicable t e = case t e of
+    Nothing -> False
+    Just _  -> True
 
 -- | Recursively apply a transform to an expression.
 transform :: Transformation -> Algebra Expr (Fix Expr)
@@ -202,13 +216,41 @@ fusion :: Transformation
 fusion = undefined
 
 fuseAssociative :: Transformation
-fuseAssociative = undefined
--- fuseAssociative e@(Expr op xs)
---     | op `elem` associative = filter (undefined) undefined
---     | otherwise = Nothing
+fuseAssociative e@(Expr op xs)
+    | op `elem` associative =
+        let candidateFilter = (\x -> maybe False (== op) (operator x))
+            fusionCandidates = filter candidateFilter . map unFix $ xs
+            notFusionCandidates = map Fx . filter (not . candidateFilter) . map unFix $ xs
+            e' = Expr op (concat $ notFusionCandidates: map (maybe [] id . subexprs) fusionCandidates)
+            -- TODO: That the order of expressions changes is an unfortunate point.
+            --       This transformation would better be done in place, with split & intercalate.
+            message = unwords ["Fusion of", pack . show $ op, "due to associativity."]
+        in Just $ tellWithDiff e e' message
+    | otherwise = Nothing
+fuseAssociative _ = Nothing
+
+-- |
+-- λ cata (transform fuseAssociative) $ (2 * (3 * 5) * (1 + (2 + 3)))
+-- Pi [Sigma [1,2,3],2,3,5]
 
 fuseUnary :: Transformation
-fuseUnary = undefined
+fuseUnary e@(Unary un (Fx e'@(Unary un' (Fx e''))))
+    | (un, un') `elem` dual =
+        let message = unwords [ "Fusion of", pack . show $ un, "due to duality with"
+                              , pack . show $ un', "." ]
+        in Just $ tellWithDiff e e'' message
+    | un == un' && un `elem` idempotent =
+        let message = unwords [ "Fusion of", pack . show $ un, "due to idempotence." ]
+        in Just $ tellWithDiff e e' message
+    | otherwise = Nothing
+fuseUnary _ = Nothing
+
+-- |
+-- λ expr = abs (abs (- (- (-2 ))))
+-- λ cata (transform fuseUnary) $ expr
+-- Abs Inv 2
+
+-- TODO: Should also remove Inv from directly under Abs: Abs . Inv = Abs.
 
 fuseConstants :: Transformation
 fuseConstants = undefined
