@@ -2,8 +2,6 @@
     OverloadedStrings
   , TypeSynonymInstances
   , FlexibleInstances
-  , UndecidableInstances
-  , FunctionalDependencies
   #-}
 
 module Symbolic where
@@ -15,6 +13,9 @@ import Data.String
 import Data.Text (Text)
 
 import Algebra
+
+-- $setup
+-- λ :set -XOverloadedStrings
 
 -- Plan:
 -- 
@@ -106,14 +107,18 @@ instance Num ExprF where
     negate = Unary Inv . Fx
     fromInteger = Const
 
--- \ :t fmap unFix $ [Fx (1 :: ExprF)]
--- fmap unFix $ [Fx (1 :: ExprF)] :: [Expr (Fix Expr)]
+-- |
+-- λ :t fmap unFix $ [Fx (1 :: ExprF)]
+-- fmap unFix $ [Fx (1 :: ExprF)]
+--   :: [PolymorphicExpr Integer (Fix (PolymorphicExpr Integer))]
 
 instance IsString ExprF where
     fromString = Var
 
--- \ :t fmap unFix $ [Fx ("x" :: ExprF)]
--- fmap unFix $ [Fx ("x" :: ExprF)] :: [Expr (Fix Expr)]
+-- |
+-- λ :t fmap unFix $ [Fx ("x" :: ExprF)]
+-- fmap unFix $ [Fx ("x" :: ExprF)]
+--   :: [PolymorphicExpr Integer (Fix (PolymorphicExpr Integer))]
 
 -- | An old-school Expr definition.
 euler27 :: ExprF
@@ -127,12 +132,14 @@ euler27 = Expr Sigma
 euler27' :: ExprF
 euler27' = sigma [pow ["x", 2], "a" * "x", "b"]
 
--- \ euler27 == euler27'
+-- |
+-- λ euler27 == euler27'
 -- True
--- \ euler27 == Const 1
+-- λ euler27 == Const 1
 -- False
 
--- \ cata eval $ pow [sigma [1,2,3],4]
+-- |
+-- λ cata eval $ pow [sigma [1,2,3],4]
 -- 1296
 
 -- | Accept something that looks like an initial algebra, but actually
@@ -150,12 +157,11 @@ subst x y = algMap (transform (replace x y))
 subsTable :: [(ExprF, ExprF)] -> ExprF -> ExprF
 subsTable table e = foldl' (flip . uncurry $ subst) e table
 
--- \ let euler1 = subsTable [("b", 41), ("a", 1)] euler27
--- \ let f i = cata eval . subst "x" (Const i) $ euler1
--- \ takeWhile isPrime $ f <$> [1..]
--- [43,47,53,61,71,83,97,113,131,151,173,197,223,251,281,313,347,383,421,461,
--- 503,547,593,641,691,743,797,853,911,971,1033,1097,1163,1231,1301,1373,1447,
--- 1523,1601]
+-- |
+-- λ let euler1 = subsTable [("b", 41), ("a", 1)] euler27
+-- λ let f i = cata eval . subst "x" (Const i) $ euler1
+-- λ take 10 $ f <$> [1..]
+-- [43,47,53,61,71,83,97,113,131,151]
 
 -- | Solve f for x.
 -- solve f x =
@@ -198,8 +204,10 @@ fuseAssociative = undefined
 --     | op `elem` associative = filter (undefined) undefined
 --     | otherwise = Nothing
 
+fuseUnary :: Transformation
 fuseUnary = undefined
 
+fuseConstants :: Transformation
 fuseConstants = undefined
 
 expand :: Transformation
