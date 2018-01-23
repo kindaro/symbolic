@@ -169,19 +169,22 @@ subsTable table e = foldl' (flip . uncurry $ subst) e table
 -- | Simplify an expression as best we can.
 -- simpl :: Expr -> Expr
 
-type Comment = ((ExprF, ExprF), Text)
+data Comment = Comment !ExprF !ExprF !Text
 
 -- | A transformation may modify an expression and say something.
-type Transformation = ExprF -> MaybeT (Writer [Comment]) ExprF
+type Transformation = ExprF -> Maybe (Writer [Comment] ExprF)
 
 tellWithDiff :: ExprF -> ExprF -> Text -> Writer [Comment] ExprF
-tellWithDiff e e' x = tell [((e, e'), x)] >> return e'
+tellWithDiff e e' x = tell [(Comment e e' x)] >> return e'
 
 -- | Drop side effects of a transformation.
 dropEffects :: Transformation -> ExprF -> ExprF
-dropEffects t e = case runWriter . runMaybeT $ t e of
-    (Nothing, _) -> e
-    (Just e', _) -> e'
+dropEffects t = fst . runWriter . dropMaybe t
+
+dropMaybe :: Transformation -> ExprF -> Writer [Comment] ExprF
+dropMaybe t e = case t e of
+    Nothing -> return e
+    Just w  -> w
 
 -- | Recursively apply a transform to an expression.
 transform :: Transformation -> Algebra Expr (Fix Expr)
@@ -189,8 +192,8 @@ transform t = Fx . dropEffects t
 
 -- | If the expression is extensionally equal to x, replace it with y.
 replace :: ExprF -> ExprF -> Transformation
-replace x y e | e == x = MaybeT (tellWithDiff x y "replace" >> (return . Just) y)
-              | otherwise = MaybeT (return Nothing)
+replace x y e | e == x    = Just    $ tellWithDiff x y "replace" >> return y
+              | otherwise = Nothing
 
 -- | Fusion glues together associative operations (i.e. removing parentheses),
 --   removes superfluous repetitive adjoined unary operations, and evaluates
