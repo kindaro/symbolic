@@ -8,7 +8,7 @@
 module Symbolic where
 
 import Control.Monad.Writer.Strict
-import Data.List (foldl', foldl1')
+import Data.List (foldl', foldl1', sort, group)
 import Data.String (IsString(..))
 import Data.Text (Text, unwords, pack)
 import Prelude hiding (unwords)
@@ -73,6 +73,31 @@ operator  _          = Nothing
 subexprs :: Expr a -> Maybe [a]
 subexprs (Expr _ xs) = Just xs
 subexprs  _          = Nothing
+
+depth, size :: Expr Int -> Int  -- TODO: Int? Integer? Integral?
+
+depth ( Const _    ) = 1
+depth ( Var   _    ) = 1
+depth ( Unary _ x  ) = 1 + x
+depth ( Expr  _ xs ) = 1 + maximum ( 0: xs )
+
+size ( Const _    ) = 1
+size ( Var   _    ) = 1
+size ( Unary _ x  ) = x
+size ( Expr  _ xs ) = sum xs
+
+sizeOfToplevel :: Expr a -> Int
+sizeOfToplevel (Expr _ xs) = length xs
+sizeOfToplevel _ = 1
+
+vars :: Expr [String] -> [String]
+vars  ( Const _    ) = [ ]
+vars  ( Var   v    ) = [v]
+vars  ( Unary _ x  ) = x
+vars  ( Expr  _ xs ) = concat xs
+
+equivalenceClasses :: Ord a => [a] -> [(a, Int)]
+equivalenceClasses = map (\xs@(x:_) -> (x, length xs)) . group . sort
 
 instance Show a => Show (Expr a) where
     show (Expr op xs) = show op ++ " " ++ show xs
