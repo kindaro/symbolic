@@ -36,7 +36,27 @@ import Algebra
 
 data Op = Sigma | Pi | Pow deriving (Show, Eq)
 
+-- | Associative binary operations.
+associative :: [Op]
+associative = [Sigma, Pi]
+
+-- | Commutative binary operations.
+commutative :: [Op]
+commutative = [Sigma, Pi]
+
 data Un = Inv | Abs deriving (Show, Eq)
+
+-- | Idempotent unary operations.
+idempotent :: [Un]
+idempotent = [Abs]
+
+-- | Pairwise idempotent unary operations.
+pairwiseIdempotent :: [(Un, Un)]
+pairwiseIdempotent = [(Abs, Inv)]
+
+-- | Dual unary operations, given as pairs.
+dual :: [(Un, Un)]
+dual = [(Inv, Inv)]
 
 data PolymorphicExpr c a = Expr Op [a]
             | Unary Un a
@@ -74,22 +94,6 @@ inv = Unary Inv . Fx
 
 absolute :: a (Fix a) -> Expr (Fix a) 
 absolute = Unary Abs . Fx
-
--- | Associative binary operations.
-associative :: [Op]
-associative = [Sigma, Pi]
-
--- | Commutative binary operations.
-commutative :: [Op]
-commutative = [Sigma, Pi]
-
--- | Idempotent unary operations.
-idempotent :: [Un]
-idempotent = [Abs]
-
--- | Dual unary operations, given as pairs.
-dual :: [(Un, Un)]
-dual = [(Inv, Inv)]
 
 instance Functor Expr where
     fmap f (Expr op xs) = Expr op (fmap f xs)
