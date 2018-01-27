@@ -58,13 +58,17 @@ pairwiseIdempotent = [(Abs, Inv)]
 dual :: [(Un, Un)]
 dual = [(Inv, Inv)]
 
-data PolymorphicExpr c a = Expr Op [a]
+data PolymorphicExpr l v a = Expr Op [a]
             | Unary Un a
-            | Var String
-            | Const Integer
+            | Var l
+            | Const v
             deriving Eq
 
-type Expr = PolymorphicExpr Integer
+type Label = String
+
+type Value = Integer
+
+type Expr = PolymorphicExpr Label Value
 
 operator :: Expr a -> Maybe Op
 operator (Expr op _) = Just op
@@ -90,7 +94,7 @@ sizeOfToplevel :: Expr a -> Int
 sizeOfToplevel (Expr _ xs) = length xs
 sizeOfToplevel _ = 1
 
-vars :: Expr [String] -> [String]
+vars :: Expr [Label] -> [Label]
 vars  ( Const _    ) = [ ]
 vars  ( Var   v    ) = [v]
 vars  ( Unary _ x  ) = x
@@ -126,7 +130,7 @@ instance Functor Expr where
     fmap _ (Var x) = Var x
     fmap _ (Const x) = Const x
 
-eval :: Algebra Expr Integer
+eval :: Algebra Expr Value
 eval (Expr Sigma xs) = foldl1' (+) xs
 eval (Expr Pi xs) = foldl1' (*) xs
 eval (Expr Pow xs) = foldr1 (^) xs
@@ -148,7 +152,8 @@ instance Num ExprF where
 -- |
 -- λ :t fmap unFix $ [Fx (1 :: ExprF)]
 -- fmap unFix $ [Fx (1 :: ExprF)]
---   :: [PolymorphicExpr Integer (Fix (PolymorphicExpr Integer))]
+--   :: [PolymorphicExpr
+--         Label Value (Fix (PolymorphicExpr Label Value))]
 
 instance IsString ExprF where
     fromString = Var
@@ -156,7 +161,8 @@ instance IsString ExprF where
 -- |
 -- λ :t fmap unFix $ [Fx ("x" :: ExprF)]
 -- fmap unFix $ [Fx ("x" :: ExprF)]
---   :: [PolymorphicExpr Integer (Fix (PolymorphicExpr Integer))]
+--   :: [PolymorphicExpr
+--         Label Value (Fix (PolymorphicExpr Label Value))]
 
 -- | An old-school Expr definition.
 euler27 :: ExprF
@@ -294,7 +300,7 @@ contract = undefined
 --   Should create a proper polynomial from a soup of summands.
 --
 --   Should this do expansion? No. Only grouping together of elements of similar power.
-collect :: String -> Transformation
+collect :: Value -> Transformation
 collect = undefined
 
 -- Example: > x^2 + ax + b          x^2 + ax + b
