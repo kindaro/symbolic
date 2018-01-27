@@ -265,8 +265,12 @@ expand = undefined
 contract :: Transformation
 contract = undefined
 
-group :: Transformation
-group = undefined
+-- | Group together elements that belong to equivalence classes by power of some variable.
+--   Should create a proper polynomial from a soup of summands.
+--
+--   Should this do expansion? No. Only grouping together of elements of similar power.
+collect :: String -> Transformation
+collect = undefined
 
 -- Example: > x^2 + ax + b          x^2 + ax + b
 --          > subst x (y - 1)       (y - 1)^2 + a(y - 1) + b
