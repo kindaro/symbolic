@@ -78,31 +78,6 @@ subexprs :: Expr a -> Maybe [a]
 subexprs (Expr _ xs) = Just xs
 subexprs  _          = Nothing
 
-depth, size :: Expr Int -> Int  -- TODO: Int? Integer? Integral?
-
-depth ( Const _    ) = 1
-depth ( Var   _    ) = 1
-depth ( Unary _ x  ) = 1 + x
-depth ( Expr  _ xs ) = 1 + maximum ( 0: xs )
-
-size ( Const _    ) = 1
-size ( Var   _    ) = 1
-size ( Unary _ x  ) = x
-size ( Expr  _ xs ) = sum xs
-
-sizeOfToplevel :: Expr a -> Int
-sizeOfToplevel (Expr _ xs) = length xs
-sizeOfToplevel _ = 1
-
-vars :: Expr [Label] -> [Label]
-vars  ( Const _    ) = [ ]
-vars  ( Var   v    ) = [v]
-vars  ( Unary _ x  ) = x
-vars  ( Expr  _ xs ) = concat xs
-
-equivalenceClasses :: Ord a => [a] -> [(a, Int)]
-equivalenceClasses = map (\xs@(x:_) -> (x, length xs)) . group . sort
-
 instance Show a => Show (Expr a) where
     show (Expr op xs) = show op ++ " " ++ show xs
     show (Unary un xs) = show un ++ " " ++ show xs
@@ -140,6 +115,52 @@ eval (Const x) = x
 eval (Var _) = error $ "TODO: define variable lookup."
 
 type ExprF = Expr (Fix Expr)
+
+-- |
+-- λ depth euler27
+-- 3
+depth :: ExprF -> Int
+depth = cata depth'
+  where
+    depth' :: Expr Int -> Int  -- TODO: Int? Integer? Integral?
+    depth' ( Const _    ) = 1
+    depth' ( Var   _    ) = 1
+    depth' ( Unary _ x  ) = 1 + x
+    depth' ( Expr  _ xs ) = 1 + maximum ( 0: xs )
+
+-- |
+-- λ size euler27
+-- 5
+size :: ExprF -> Int
+size = cata size'
+  where
+    size' :: Expr Int -> Int
+    size' ( Const _    ) = 1
+    size' ( Var   _    ) = 1
+    size' ( Unary _ x  ) = x
+    size' ( Expr  _ xs ) = sum xs
+
+-- |
+-- λ sizeOfToplevel euler27
+-- 3
+sizeOfToplevel :: Expr a -> Int
+sizeOfToplevel (Expr _ xs) = length xs
+sizeOfToplevel _ = 1
+
+-- |
+-- λ vars euler27
+-- [("a",1),("b",1),("x",2)]
+vars :: ExprF -> [(Label, Int)]
+vars = equivalenceClasses . cata vars'
+  where
+    vars' :: Expr [Label] -> [Label]
+    vars'  ( Const _    ) = [ ]
+    vars'  ( Var   v    ) = [v]
+    vars'  ( Unary _ x  ) = x
+    vars'  ( Expr  _ xs ) = concat xs
+
+    equivalenceClasses :: Ord a => [a] -> [(a, Int)]
+    equivalenceClasses = map (\xs@(x:_) -> (x, length xs)) . group . sort
 
 instance Num ExprF where
     f + g = Expr Sigma [Fx f, Fx g]
