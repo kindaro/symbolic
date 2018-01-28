@@ -58,11 +58,12 @@ pairwiseIdempotent = [(Abs, Inv)]
 dual :: [(Un, Un)]
 dual = [(Inv, Inv)]
 
-data PolymorphicExpr l v a = Expr Op [a]
-            | Unary Un a
-            | Var l
-            | Const v
-            deriving Eq
+data PolymorphicExpr l v a
+    = Polyary Op [a]
+    | Unary Un a
+    | Var l
+    | Const v
+    deriving Eq
 
 type Label = String
 
@@ -79,19 +80,19 @@ subexprs (Expr _ xs) = Just xs
 subexprs  _          = Nothing
 
 instance Show a => Show (Expr a) where
-    show (Expr op xs) = show op ++ " " ++ show xs
+    show (Polyary op xs) = show op ++ " " ++ show xs
     show (Unary un xs) = show un ++ " " ++ show xs
     show (Var x) = show x
     show (Const x) = show x
 
 sigma :: [a (Fix a)] -> Expr (Fix a)
-sigma = Expr Sigma . fmap Fx
+sigma = Polyary Sigma . fmap Fx
 
 pi :: [a (Fix a)] -> Expr (Fix a)
-pi = Expr Pi . fmap Fx
+pi = Polyary Pi . fmap Fx
 
 pow :: [a (Fix a)] -> Expr (Fix a)
-pow = Expr Pow . fmap Fx
+pow = Polyary Pow . fmap Fx
 
 inv :: a (Fix a) -> Expr (Fix a)
 inv = Unary Inv . Fx
@@ -100,15 +101,15 @@ absolute :: a (Fix a) -> Expr (Fix a)
 absolute = Unary Abs . Fx
 
 instance Functor Expr where
-    fmap f (Expr op xs) = Expr op (fmap f xs)
+    fmap f (Polyary op xs) = Polyary op (fmap f xs)
     fmap f (Unary un x) = Unary un (f x)
     fmap _ (Var x) = Var x
     fmap _ (Const x) = Const x
 
 eval :: Algebra Expr Value
-eval (Expr Sigma xs) = foldl1' (+) xs
-eval (Expr Pi xs) = foldl1' (*) xs
-eval (Expr Pow xs) = foldr1 (^) xs
+eval (Polyary Sigma xs) = foldl1' (+) xs
+eval (Polyary Pi xs) = foldl1' (*) xs
+eval (Polyary Pow xs) = foldr1 (^) xs
 eval (Unary Inv x) = -x
 eval (Unary Abs x) = abs x
 eval (Const x) = x
@@ -126,7 +127,7 @@ depth = cata depth'
     depth' ( Const _    ) = 1
     depth' ( Var   _    ) = 1
     depth' ( Unary _ x  ) = 1 + x
-    depth' ( Expr  _ xs ) = 1 + maximum ( 0: xs )
+    depth' ( Polyary  _ xs ) = 1 + maximum ( 0: xs )
 
 -- |
 -- λ size euler27
@@ -138,13 +139,13 @@ size = cata size'
     size' ( Const _    ) = 1
     size' ( Var   _    ) = 1
     size' ( Unary _ x  ) = x
-    size' ( Expr  _ xs ) = sum xs
+    size' ( Polyary  _ xs ) = sum xs
 
 -- |
 -- λ sizeOfToplevel euler27
 -- 3
 sizeOfToplevel :: Expr a -> Int
-sizeOfToplevel (Expr _ xs) = length xs
+sizeOfToplevel (Polyary _ xs) = length xs
 sizeOfToplevel _ = 1
 
 -- |
@@ -157,14 +158,14 @@ vars = equivalenceClasses . cata vars'
     vars'  ( Const _    ) = [ ]
     vars'  ( Var   v    ) = [v]
     vars'  ( Unary _ x  ) = x
-    vars'  ( Expr  _ xs ) = concat xs
+    vars'  ( Polyary  _ xs ) = concat xs
 
     equivalenceClasses :: Ord a => [a] -> [(a, Int)]
     equivalenceClasses = map (\xs@(x:_) -> (x, length xs)) . group . sort
 
 instance Num ExprF where
-    f + g = Expr Sigma [Fx f, Fx g]
-    f * g = Expr Pi    [Fx f, Fx g]
+    f + g = Polyary Sigma [Fx f, Fx g]
+    f * g = Polyary Pi    [Fx f, Fx g]
     abs f = Unary Abs (Fx f)
     signum = undefined  -- I'm not sure. Either detect outermost Inv or just ignore.
     negate = Unary Inv . Fx
@@ -187,9 +188,9 @@ instance IsString ExprF where
 
 -- | An old-school Expr definition.
 euler27 :: ExprF
-euler27 = Expr Sigma
-        [ Fx $ Expr Pow [Fx $ Var "x", Fx $ Const 2]
-        , Fx $ Expr Pi [Fx $ Var "a", Fx $ Var "x"]
+euler27 = Polyary Sigma
+        [ Fx $ Polyary Pow [Fx $ Var "x", Fx $ Const 2]
+        , Fx $ Polyary Pi [Fx $ Var "a", Fx $ Var "x"]
         , Fx $ Var "b"
         ]
 
