@@ -8,7 +8,7 @@
 module Symbolic where
 
 import Control.Monad.Writer.Strict
-import Data.List (foldl', foldl1')
+import Data.List (foldl', foldl1', break)
 import Data.Maybe (isJust)
 import Data.String (IsString(..))
 import Data.Text (Text, unwords, pack)
@@ -183,6 +183,28 @@ equivalenceClassesBy eq (x:xs) = classify eq x (equivalenceClassesBy eq xs)
                            | otherwise    =    ys  : classify ep y yss
     classify _  y [] = [[y]]
 
+-- |
+-- λ zebra "lalafa"
+-- (["l","l"],["a","afa"])
+zebra :: Eq a => [a] -> ([[a]], [[a]])
+zebra [ ]    = ([ ], [ ])
+zebra all@(x:_) = zebraBy (== x) all
+
+zebraBy :: (a -> Bool) -> [a] -> ([[a]], [[a]])
+zebraBy pred = unzip . separate . (divide pred)
+  where
+    divide :: (a -> Bool) -> [a] -> [[a]]
+    divide _    [ ] = [ ]
+    divide pred xs  = let
+                          (good, other) = break (not . pred) xs
+                          (evil, bystander) = break pred other
+                      in good : evil : divide pred bystander
+
+    separate :: [[a]] -> [([a], [a])]
+    separate [  ] = [ ]
+    separate [xs] = [(xs, [])]
+    separate (xs:xs':xss) = (xs, xs'): separate xss
+
 instance Num ExprF where
     f + g = Polyary Sigma [Fx f, Fx g]
     f * g = Polyary Pi    [Fx f, Fx g]
@@ -325,14 +347,12 @@ fuseAssociative' e@(Polyary op fxs)
             candidateFilter (Polyary op' _) = op == op'
             candidateFilter  _              = False
 
-            fusionCandidates :: [ExprF]
-            fusionCandidates = filter candidateFilter xs
-
-            notFusionCandidates :: [ExprF]
-            notFusionCandidates = filter (not . candidateFilter) xs
+            fusionCandidates, notFusionCandidates :: [[ExprF]]
+            (fusionCandidates, notFusionCandidates) =
+                zebraBy candidateFilter xs
 
             e' = Polyary op . map Fx . concat $
-                    notFusionCandidates: map subexprs fusionCandidates
+                    (concat notFusionCandidates: map subexprs (concat fusionCandidates))
 
             -- TODO: That the order of expressions changes is an unfortunate point.
             --       This transformation would better be done in place, with split & intercalate.
