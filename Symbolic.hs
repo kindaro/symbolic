@@ -224,9 +224,11 @@ subsTable :: [(ExprF, ExprF)] -> ExprF -> ExprF
 subsTable table e = foldl' (flip . uncurry $ subst) e table
 
 -- |
--- λ let euler1 = subsTable [("b", 41), ("a", 1)] euler27
--- λ let f i = cata eval . subst "x" (Const i) $ euler1
--- λ take 10 $ f <$> [1..]
+-- λ :{
+--      let euler1 = subsTable [("b", 41), ("a", 1)] euler27
+--          f i = cata eval . subst "x" (Const i) $ euler1
+--      in take 10 $ f <$> [1..]
+-- :}
 -- [43,47,53,61,71,83,97,113,131,151]
 
 -- | Solve f for x.
@@ -303,8 +305,7 @@ fuseUnary e@(Unary un (Fx e'@(Unary un' (Fx e''))))
 fuseUnary _ = Nothing
 
 -- |
--- λ expr = abs (abs (- (- (-2 ))))
--- λ cata (transform fuseUnary) $ expr
+-- λ cata (transform fuseUnary) $ abs (abs (- (- (-2 ))))
 -- Abs Inv 2
 
 -- TODO: Should also remove Inv from directly under Abs: Abs . Inv = Abs.
