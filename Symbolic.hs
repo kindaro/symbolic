@@ -20,7 +20,7 @@ import Algebra
 -- λ :set -XOverloadedStrings
 
 -- Plan:
--- 
+--
 -- [+] Write basic Expr.
 -- [+] Make it Num. [Additionally made it IsString.]
 -- [+] Make it Algebra.
@@ -110,7 +110,7 @@ pow = Polyary Pow . fmap Fx
 inv :: a (Fix a) -> Expr (Fix a)
 inv = Unary Inv . Fx
 
-absolute :: a (Fix a) -> Expr (Fix a) 
+absolute :: a (Fix a) -> Expr (Fix a)
 absolute = Unary Abs . Fx
 
 instance Functor Expr where
