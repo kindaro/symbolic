@@ -171,7 +171,7 @@ vars = map (\xs -> (head xs, length xs)) . equivalenceClasses . cata vars'
     vars'  ( Unary _ x  ) = x
     vars'  ( Polyary  _ xs ) = concat xs
 
-equivalenceClasses :: [Label] -> [[Label]]
+equivalenceClasses :: Eq a => [a] -> [[a]]
 equivalenceClasses = equivalenceClassesBy (==)
 
 equivalenceClassesBy :: (a -> a -> Bool) -> [a] -> [[a]]
