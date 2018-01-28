@@ -116,8 +116,20 @@ absolute = Unary Abs . Fx
 instance Functor Expr where
     fmap f (Polyary op xs) = Polyary op (fmap f xs)
     fmap f (Unary un x) = Unary un (f x)
-    fmap _ (Var x) = Var x
-    fmap _ (Const x) = Const x
+    fmap _ (Var      x) = Var x
+    fmap _ (Const    x) = Const x
+
+instance Foldable Expr where
+    foldMap f (Polyary _ xs) = mconcat . fmap f $ xs
+    foldMap f (Unary   _ x ) = f x
+    foldMap _ (Const     i ) = mempty
+    foldMap _ (Var       s ) = mempty
+
+instance Traversable Expr where
+    traverse f (Polyary op xs) = fmap (Polyary op) . traverse f $ xs
+    traverse f (Unary   op x ) = fmap (Unary   op) .          f $ x
+    traverse _ (Var         x) = pure $ Var x
+    traverse _ (Const       x) = pure $ Const x
 
 eval :: Algebra Expr Value
 eval (Polyary Sigma xs) = foldl1' (+) xs
