@@ -8,7 +8,7 @@
 module Symbolic where
 
 import Control.Monad.Writer.Strict
-import Data.List (foldl', foldl1', sort, group)
+import Data.List (foldl', foldl1')
 import Data.Maybe (isJust)
 import Data.String (IsString(..))
 import Data.Text (Text, unwords, pack)
@@ -157,9 +157,9 @@ sizeOfToplevel _ = 1
 
 -- |
 -- λ vars euler27
--- [("a",1),("b",1),("x",2)]
+-- [("b",1),("x",2),("a",1)]
 vars :: ExprF -> [(Label, Int)]
-vars = equivalenceClasses . cata vars'
+vars = map (\xs -> (head xs, length xs)) . equivalenceClasses . cata vars'
   where
     vars' :: Expr [Label] -> [Label]
     vars'  ( Const _    ) = [ ]
@@ -167,8 +167,17 @@ vars = equivalenceClasses . cata vars'
     vars'  ( Unary _ x  ) = x
     vars'  ( Polyary  _ xs ) = concat xs
 
-    equivalenceClasses :: Ord a => [a] -> [(a, Int)]
-    equivalenceClasses = map (\xs@(x:_) -> (x, length xs)) . group . sort
+equivalenceClasses :: [Label] -> [[Label]]
+equivalenceClasses = equivalenceClassesBy (==)
+
+equivalenceClassesBy :: (a -> a -> Bool) -> [a] -> [[a]]
+equivalenceClassesBy _  [ ] = [ ]
+equivalenceClassesBy eq (x:xs) = classify eq x (equivalenceClassesBy eq xs)
+  where
+    classify :: (a -> a -> Bool) -> a -> [[a]] -> [[a]]
+    classify ep y (ys:yss) | head ys `ep` y = (y:ys) : yss
+                           | otherwise    =    ys  : classify ep y yss
+    classify _  y [] = [[y]]
 
 instance Num ExprF where
     f + g = Polyary Sigma [Fx f, Fx g]
