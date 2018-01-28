@@ -389,7 +389,9 @@ fuseUnary _ = Nothing
 -- TODO: Should also remove Inv from directly under Abs: Abs . Inv = Abs.
 
 fuseConstants :: Transformation
-fuseConstants = undefined
+fuseConstants e | vars e == [ ] = Just $ tellWithDiff e (Const . cata eval $ e) message
+                | otherwise     = Nothing
+  where message = "Evaluating constant form."
 
 expand :: Transformation
 expand = undefined
