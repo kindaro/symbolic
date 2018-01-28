@@ -347,7 +347,7 @@ fusion = undefined
 
 -- |
 -- λ cata (transform fuseAssociative) $ (2 * (3 * 5) * (1 + (2 + 3)))
--- Pi [Sigma [1,2,3],2,3,5]
+-- Pi [2,3,5,Sigma [1,2,3]]
 fuseAssociative :: Transformation
 fuseAssociative = wrapInMaybe fuseAssociative'
 
@@ -355,25 +355,19 @@ fuseAssociative' :: SubTransformation
 fuseAssociative' e@(Polyary op fxs)
     | op `elem` associative =
         let
-            candidateFilter :: Expr a -> Bool
-            candidateFilter (Polyary op' _) = op == op'
-            candidateFilter  _              = False
+            isSimilar :: Expr a -> Bool
+            isSimilar (Polyary op' _) = op == op'
+            isSimilar  _              = False
 
-            fusionCandidates, notFusionCandidates :: [[ExprF]]
-            (fusionCandidates, notFusionCandidates) =
-                zebraBy candidateFilter xs
+            liftIfSimilar all@ (e:es) | isSimilar e = subexprs e ++ liftIfSimilar es
+                                      | otherwise   = e           : liftIfSimilar es
+            liftIfSimilar [ ] = [ ]
 
-            e' = Polyary op . map Fx . concat $
-                    (concat notFusionCandidates: map subexprs (concat fusionCandidates))
-
-            -- TODO: That the order of expressions changes is an unfortunate point.
-            --       This transformation would better be done in place, with split & intercalate.
+            e' = Polyary op $ mapFix2 liftIfSimilar fxs
 
             message = unwords ["Fusion of", pack . show $ op, "due to associativity."]
 
         in tellWithDiff e e' message
-  where
-    xs = map unFix fxs
 fuseAssociative' e = return e
 
 fuseUnary :: Transformation
