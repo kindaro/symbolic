@@ -318,7 +318,8 @@ fuseAssociative' e@(Polyary op fxs)
     | op `elem` associative =
         let
             candidateFilter :: Expr a -> Bool
-            candidateFilter = (\x -> maybe False (== op) (maybeOperator x))
+            candidateFilter (Polyary op' _) = op == op'
+            candidateFilter  _              = False
 
             fusionCandidates :: [ExprF]
             fusionCandidates = filter candidateFilter xs
