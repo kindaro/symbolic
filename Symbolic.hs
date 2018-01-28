@@ -9,6 +9,7 @@ module Symbolic where
 
 import Control.Monad.Writer.Strict
 import Data.List (foldl', foldl1', sort, group)
+import Data.Maybe (isJust)
 import Data.String (IsString(..))
 import Data.Text (Text, unwords, pack)
 import Prelude hiding (unwords)
@@ -71,13 +72,21 @@ type Value = Integer
 
 type Expr = PolymorphicExpr Label Value
 
-operator :: Expr a -> Maybe Op
-operator (Expr op _) = Just op
-operator  _          = Nothing
+type ExprF = Expr (Fix Expr)
 
-subexprs :: Expr a -> Maybe [a]
-subexprs (Expr _ xs) = Just xs
-subexprs  _          = Nothing
+maybeOperator :: Expr a -> Maybe Op
+maybeOperator (Polyary op _) = Just op
+maybeOperator  _          = Nothing
+
+maybeSubexprs :: ExprF -> Maybe [ExprF]
+maybeSubexprs (Polyary _ xs) = Just . map unFix $ xs
+maybeSubexprs (Unary   _ x ) = Just [unFix x]
+maybeSubexprs  _             = Nothing
+
+subexprs :: ExprF -> [ExprF]
+subexprs (Polyary _ xs) = map unFix xs
+subexprs (Unary   _ x ) = [unFix x]
+subexprs  _             = [ ]
 
 instance Show a => Show (Expr a) where
     show (Polyary op xs) = show op ++ " " ++ show xs
@@ -114,8 +123,6 @@ eval (Unary Inv x) = -x
 eval (Unary Abs x) = abs x
 eval (Const x) = x
 eval (Var _) = error $ "TODO: define variable lookup."
-
-type ExprF = Expr (Fix Expr)
 
 -- |
 -- λ depth euler27
@@ -242,6 +249,8 @@ data Comment = Comment !ExprF !ExprF !Text deriving (Show, Eq)
 -- | A transformation may modify an expression and say something.
 type Transformation = ExprF -> Maybe (Writer [Comment] ExprF)
 
+type SubTransformation = ExprF -> Writer [Comment] ExprF
+
 tellWithDiff :: ExprF -> ExprF -> Text -> Writer [Comment] ExprF
 tellWithDiff e e' x = tell [(Comment e e' x)] >> return e'
 
@@ -249,15 +258,30 @@ tellWithDiff e e' x = tell [(Comment e e' x)] >> return e'
 dropEffects :: Transformation -> ExprF -> ExprF
 dropEffects t = fst . runWriter . dropMaybe t
 
+-- | Drop the Maybe layer of a transformation, but keep the Writer.
 dropMaybe :: Transformation -> ExprF -> Writer [Comment] ExprF
-dropMaybe t e = case t e of
-    Nothing -> return e
-    Just w  -> w
+dropMaybe t e = maybe (return e) id (t e)
 
+-- | TODO: Write some comment.
 isApplicable :: Transformation -> ExprF -> Bool
-isApplicable t e = case t e of
-    Nothing -> False
-    Just _  -> True
+isApplicable t e = isJust (t e)
+
+-- | TODO: Write some comment.
+makesDifference :: Transformation -> ExprF -> Bool
+makesDifference t e = e' == e
+  where e' = dropEffects t e
+
+-- | If a sub-transformation makes difference, make it a transformation.
+wrapInMaybe :: SubTransformation -> Transformation
+wrapInMaybe f e | let result = f e
+                , (e', _) <- runWriter result
+                , e' /= e
+                    = Just result
+                | otherwise = Nothing
+
+
+-- | Repeat a Transformation until it fails. Keep the last resulting expression.
+adNauseam = undefined
 
 -- | Recursively apply a transform to an expression.
 transform :: Transformation -> Algebra Expr (Fix Expr)
@@ -274,23 +298,37 @@ replace x y e | e == x    = Just    $ tellWithDiff x y "replace" >> return y
 fusion :: Transformation
 fusion = undefined
 
-fuseAssociative :: Transformation
-fuseAssociative e@(Expr op xs)
-    | op `elem` associative =
-        let candidateFilter = (\x -> maybe False (== op) (operator x))
-            fusionCandidates = filter candidateFilter . map unFix $ xs
-            notFusionCandidates = map Fx . filter (not . candidateFilter) . map unFix $ xs
-            e' = Expr op (concat $ notFusionCandidates: map (maybe [] id . subexprs) fusionCandidates)
-            -- TODO: That the order of expressions changes is an unfortunate point.
-            --       This transformation would better be done in place, with split & intercalate.
-            message = unwords ["Fusion of", pack . show $ op, "due to associativity."]
-        in Just $ tellWithDiff e e' message
-    | otherwise = Nothing
-fuseAssociative _ = Nothing
-
 -- |
 -- λ cata (transform fuseAssociative) $ (2 * (3 * 5) * (1 + (2 + 3)))
 -- Pi [Sigma [1,2,3],2,3,5]
+fuseAssociative :: Transformation
+fuseAssociative = wrapInMaybe fuseAssociative'
+
+fuseAssociative' :: SubTransformation
+fuseAssociative' e@(Polyary op fxs)
+    | op `elem` associative =
+        let
+            candidateFilter :: Expr a -> Bool
+            candidateFilter = (\x -> maybe False (== op) (maybeOperator x))
+
+            fusionCandidates :: [ExprF]
+            fusionCandidates = filter candidateFilter xs
+
+            notFusionCandidates :: [ExprF]
+            notFusionCandidates = filter (not . candidateFilter) xs
+
+            e' = Polyary op . map Fx . concat $
+                    notFusionCandidates: map subexprs fusionCandidates
+
+            -- TODO: That the order of expressions changes is an unfortunate point.
+            --       This transformation would better be done in place, with split & intercalate.
+
+            message = unwords ["Fusion of", pack . show $ op, "due to associativity."]
+
+        in tellWithDiff e e' message
+  where
+    xs = map unFix fxs
+fuseAssociative' e = return e
 
 fuseUnary :: Transformation
 fuseUnary e@(Unary un (Fx e'@(Unary un' (Fx e''))))
