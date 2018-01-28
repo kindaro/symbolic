@@ -37,6 +37,10 @@ import Algebra
 
 data Op = Sigma | Pi | Pow deriving (Show, Eq)
 
+data Property = Associative | Commutative | Idempotent
+
+data PairwiseProperty = Distributive | PairwiseIdempotent | Dual
+
 -- | Associative binary operations.
 associative :: [Op]
 associative = [Sigma, Pi]

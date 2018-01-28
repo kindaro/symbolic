@@ -10,6 +10,9 @@ module Algebra where
 
 newtype Fix a = Fx { unFix :: (a (Fix a)) }
 
+mapFix :: (a (Fix a) -> b (Fix b)) -> Fix a -> Fix b
+mapFix f = Fx . f . unFix
+
 instance Show (a (Fix a)) => Show (Fix a) where
     show (Fx e) = show e
 
