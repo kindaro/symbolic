@@ -191,9 +191,9 @@ equivalenceClassesBy _  [ ] = [ ]
 equivalenceClassesBy eq (x:xs) = classify eq x (equivalenceClassesBy eq xs)
   where
     classify :: (a -> a -> Bool) -> a -> [[a]] -> [[a]]
-    classify ep y (ys:yss) | head ys `ep` y = (y:ys) : yss
-                           | otherwise    =    ys  : classify ep y yss
-    classify _  y [] = [[y]]
+    classify ep x (xs:xss) | head xs `ep` x = (x:xs) : xss
+                           | otherwise    =    xs  : classify ep x xss
+    classify _  x [] = [[x]]
 
 -- |
 -- λ zebra "lalafa"
