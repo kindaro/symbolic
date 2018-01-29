@@ -6,7 +6,13 @@
   , FunctionalDependencies
   #-}
 
-module Fix (converge, fixp, convergeBy, fixpBy, fixpM, Fix(..), mapFix, mapFix2) where
+module Fix where
+
+-- $setup
+-- λ :{
+--      r a = \x -> (x + a / x) / 2
+--      -- ^ A method of computing square roots due to Isaac Newton.
+-- :}
 
 -- | Take elements from a list until met two equal adjacent elements. Of those,
 --   take only the first one, then be done with it.
@@ -16,12 +22,11 @@ module Fix (converge, fixp, convergeBy, fixpBy, fixpM, Fix(..), mapFix, mapFix2)
 converge :: Eq a => [a] -> [a]
 converge = convergeBy (==)
 
--- \ r a = \x -> (x + a / x) / 2
--- \ -- ^ A method of computing square roots due to Isaac Newton.
--- \ take 8 $ iterate (r 2) 1
--- [1.0,1.5,1.4166666666666665,1.4142156862745097,1.4142135623746899,
--- 1.414213562373095,1.414213562373095,1.414213562373095]
--- \ converge $ iterate (r 2) 1
+-- |
+-- λ take 8 $ iterate (r 2) 1
+-- [1.0,1.5,1.4166666666666665,1.4142156862745097,1.4142135623746899,1.414213562373095,1.414213562373095,1.414213562373095]
+--
+-- λ converge $ iterate (r 2) 1
 -- [1.0,1.5,1.4166666666666665,1.4142156862745097,1.4142135623746899,1.414213562373095]
 
 -- | Find a fixed point of a function. May present a non-terminating function
@@ -29,7 +34,8 @@ converge = convergeBy (==)
 fixp :: Eq a => (a -> a) -> a -> a
 fixp f = last . converge . iterate f
 
--- \ fixp (r 2) 1
+-- |
+-- λ fixp (r 2) 1
 -- 1.414213562373095
 
 -- | Non-overloaded counterpart to `converge`.
@@ -40,14 +46,16 @@ convergeBy eq (x: xs @(y: _))
     | x `eq` y = [x]
     | otherwise = x : convergeBy eq xs
 
--- \ convergeBy (\x y -> abs (x - y) < 0.001) $ iterate (r 2) 1
+-- |
+-- λ convergeBy (\x y -> abs (x - y) < 0.001) $ iterate (r 2) 1
 -- [1.0,1.5,1.4166666666666665,1.4142156862745097]
 
 -- | Non-overloaded counterpart to `fixp`.
 fixpBy :: (a -> a -> Bool) -> (a -> a) -> a -> a
 fixpBy eq f = last . convergeBy eq . iterate f
 
--- \ fixpBy (\x y -> abs (x - y) < 0.001) (r 2) 1
+-- |
+-- λ fixpBy (\x y -> abs (x - y) < 0.001) (r 2) 1
 -- 1.4142156862745097
 
 -- | Find a fixed point of a monadic function. May present a non-terminating
@@ -59,7 +67,8 @@ fixpM f x = do
         then return x
         else fixpM f y
 
--- \ fixpM (\x -> (".", x^2)) 0.5
+-- |
+-- λ fixpM (\x -> (".", x^2)) 0.5
 -- ("............",0.0)
 
 -- | A type constructor for fixing on the type level.
