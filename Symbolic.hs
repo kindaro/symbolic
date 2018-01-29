@@ -388,6 +388,13 @@ fuseUnary _ = Nothing
 
 -- TODO: Should also remove Inv from directly under Abs: Abs . Inv = Abs.
 
+-- | TODO: This one appears to have to be a catamorphism in order for it to be simple.  However,
+--   that means it does not uniformly connects with fuseAssociative. Moreover, I would not like to
+--   apply it to the whole tree, but rather search for largest constant subtrees. But if I use an
+--   ordinary cata, I will end up evaluating smallish chunks, for which a cata is unnecessary.
+--
+--   Maybe there should be another way of traversing the structure, from upside down. Then I will
+--   have some benefit from this being cata.
 fuseConstants :: Transformation
 fuseConstants e | vars e == [ ] = Just $ tellWithDiff e (Const . cata eval $ e) message
                 | otherwise     = Nothing
