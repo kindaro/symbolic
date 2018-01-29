@@ -15,6 +15,7 @@ import Data.Text (Text, unwords, pack)
 import Prelude hiding (unwords)
 
 import Algebra
+import Fix
 
 -- $setup
 -- λ :set -XOverloadedStrings

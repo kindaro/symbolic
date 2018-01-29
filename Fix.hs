@@ -1,4 +1,12 @@
-module Fix where
+{-# LANGUAGE
+    OverloadedStrings
+  , TypeSynonymInstances
+  , FlexibleInstances
+  , UndecidableInstances
+  , FunctionalDependencies
+  #-}
+
+module Fix (converge, fixp, convergeBy, fixpBy, fixpM, Fix(..), mapFix, mapFix2) where
 
 -- | Take elements from a list until met two equal adjacent elements. Of those,
 --   take only the first one, then be done with it.
@@ -44,7 +52,6 @@ fixpBy eq f = last . convergeBy eq . iterate f
 
 -- | Find a fixed point of a monadic function. May present a non-terminating
 --   function if applied carelessly!
---   TODO
 fixpM :: (Eq a, Monad m) => (a -> m a) -> a -> m a
 fixpM f x = do
     y <- f x
@@ -54,3 +61,20 @@ fixpM f x = do
 
 -- \ fixpM (\x -> (".", x^2)) 0.5
 -- ("............",0.0)
+
+-- | A type constructor for fixing on the type level.
+newtype Fix a = Fx { unFix :: (a (Fix a)) }
+
+instance Show (a (Fix a)) => Show (Fix a) where
+    show (Fx e) = show e
+
+instance Eq (a (Fix a)) => Eq (Fix a) where
+    (Fx x) == (Fx y) = x == y
+
+-- | This is like an fmap, but for Fix.
+mapFix :: (a (Fix a) -> b (Fix b)) -> Fix a -> Fix b
+mapFix f = Fx . f . unFix
+
+-- | This is like an fmap, but for a whole functor of Fixes.
+mapFix2 :: Functor f => (f (a (Fix a)) -> f (b (Fix b))) -> f (Fix a) -> f (Fix b)
+mapFix2 f = fmap Fx . f . fmap unFix
