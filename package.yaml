@@ -2,7 +2,7 @@ name: symbolic
 version: 0.1.0.0
 license: ISC
 
-ghc-options: -Wall
+ghc-options: -Wall -Wno-name-shadowing
 
 dependencies:
   - base >= 4.8 && < 5

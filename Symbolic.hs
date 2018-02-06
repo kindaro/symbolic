@@ -123,8 +123,8 @@ instance Functor Expr where
 instance Foldable Expr where
     foldMap f (Polyary _ xs) = mconcat . fmap f $ xs
     foldMap f (Unary   _ x ) = f x
-    foldMap _ (Const     i ) = mempty
-    foldMap _ (Var       s ) = mempty
+    foldMap _ (Const     _ ) = mempty
+    foldMap _ (Var       _ ) = mempty
 
 instance Traversable Expr where
     traverse f (Polyary op xs) = fmap (Polyary op) . traverse f $ xs
@@ -329,6 +329,7 @@ wrapInMaybe f e | let result = f e
 
 
 -- | Repeat a Transformation until it fails. Keep the last resulting expression.
+adNauseam :: Transformation -> Transformation
 adNauseam = undefined
 
 -- | Recursively apply a transform to an expression.
@@ -360,8 +361,8 @@ fuseAssociative' e@(Polyary op fxs)
             isSimilar (Polyary op' _) = op == op'
             isSimilar  _              = False
 
-            liftIfSimilar all@ (e:es) | isSimilar e = subexprs e ++ liftIfSimilar es
-                                      | otherwise   = e           : liftIfSimilar es
+            liftIfSimilar (e:es) | isSimilar e = subexprs e ++ liftIfSimilar es
+                                 | otherwise   = e           : liftIfSimilar es
             liftIfSimilar [ ] = [ ]
 
             e' = Polyary op $ mapFix2 liftIfSimilar fxs
